@@ -1,0 +1,16 @@
+[package]
+name = "log_server"
+version = "0.1.0"
+authors = ["MwlLj <731025894@qq.com>"]
+edition = "2018"
+
+[dependencies]
+serde = "*"
+serde_derive = "*"
+serde_json = "*"
+
+chrono = "*"
+
+rustc-serialize = "*"
+
+rust_parse = { git = "https://github.com/MwlLj/rust_parse" }
