@@ -15,11 +15,17 @@ const requestModeConnect: &str = "connect";
 const requestModeSending: &str = "sending";
 const requestIdentifyPublish: &str = "publish";
 const requestIdentifySubscribe: &str = "subscribe";
+const storageModeNone: &str = "none";
+const storageModeFile: &str = "file";
+const logTypeMessage: &str = "message";
+const logTypeError: &str = "error";
 
 const argServer: &str = "-server";
 const argServerName: &str = "-server-name";
 const argServerVersion: &str = "-server-version";
 const argServerNo: &str = "-server-no";
+const argStorageMode: &str = "-storage-mode";
+const argLogType: &str = "-log-type";
 
 #[derive(RustcDecodable, RustcEncodable)]
 struct CRequest {
@@ -29,7 +35,9 @@ struct CRequest {
     serverVersion: String,
     serverNo: String,
     topic: String,
-    data: String
+    data: String,
+    storageMode: String,
+    logType: String
 }
 
 fn main() {
@@ -56,7 +64,9 @@ fn main() {
         serverVersion: serverVersion.to_string(),
         serverNo: serverNo.to_string(),
         topic: "".to_string(),
-        data: "".to_string()
+        data: "".to_string(),
+        storageMode: "".to_string(),
+        logType: "".to_string()
     };
     let encoded = json::encode(&connRequest).unwrap();
     let content = vec![encoded, "\n".to_string()].join("");

@@ -14,12 +14,18 @@ const requestModeConnect: &str = "connect";
 const requestModeSending: &str = "sending";
 const requestIdentifyPublish: &str = "publish";
 const requestIdentifySubscribe: &str = "subscribe";
+const storageModeNone: &str = "none";
+const storageModeFile: &str = "file";
+const logTypeMessage: &str = "message";
+const logTypeError: &str = "error";
 
 const argServer: &str = "-server";
 const argServerName: &str = "-server-name";
 const argServerVersion: &str = "-server-version";
 const argServerNo: &str = "-server-no";
 const argData: &str = "-data";
+const argStorageMode: &str = "-storage-mode";
+const argLogType: &str = "-log-type";
 
 #[derive(RustcDecodable, RustcEncodable)]
 struct CRequest {
@@ -29,7 +35,9 @@ struct CRequest {
     serverVersion: String,
     serverNo: String,
     topic: String,
-    data: String
+    data: String,
+    storageMode: String,
+    logType: String
 }
 
 fn main() {
@@ -39,6 +47,8 @@ fn main() {
     let serverVersion = cmdHandler.register(argServerVersion, "1.0");
     let serverNo = cmdHandler.register(argServerNo, "1");
     let data = cmdHandler.register(argData, "hello");
+    let storageMode = cmdHandler.register(argStorageMode, storageModeFile);
+    let logType = cmdHandler.register(argLogType, logTypeMessage);
     cmdHandler.parse();
 
     let server = server.borrow();
@@ -46,6 +56,8 @@ fn main() {
     let serverVersion = serverVersion.borrow();
     let serverNo = serverNo.borrow();
     let data = data.borrow();
+    let storageMode = storageMode.borrow();
+    let logType = logType.borrow();
 
     let stream = TcpStream::connect(&(*server)).unwrap();
     let mut reader = BufReader::new(&stream);
@@ -59,7 +71,9 @@ fn main() {
             serverVersion: serverVersion.to_string(),
             serverNo: serverNo.to_string(),
             topic: "".to_string(),
-            data: "".to_string()
+            data: "".to_string(),
+            storageMode: "".to_string(),
+            logType: "".to_string()
         };
         let encoded = json::encode(&connRequest).unwrap();
         let content = vec![encoded, "\n".to_string()].join("");
@@ -75,7 +89,9 @@ fn main() {
             serverVersion: serverVersion.to_string(),
             serverNo: serverNo.to_string(),
             topic: "".to_string(),
-            data: data.to_string()
+            data: data.to_string(),
+            storageMode: storageMode.to_string(),
+            logType: logType.to_string()
         };
         let encoded = json::encode(&pubRequest).unwrap();
         let content = vec![encoded, "\n".to_string()].join("");

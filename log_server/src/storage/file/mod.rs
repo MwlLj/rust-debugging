@@ -2,6 +2,7 @@ extern crate chrono;
 
 use std::io::prelude::*;
 use chrono::prelude::*;
+use std::fs::OpenOptions;
 use std::fs::File;
 use std::io::Seek;
 use std::io::BufWriter;
@@ -18,8 +19,7 @@ impl CFile {
         dt.format("%Y-%m-%d %H:%M:%S").to_string()
     }
     fn write(&self, path: &str, contentType: &str, content: &str) -> std::io::Result<()> {
-        let mut f = File::create(path)?;
-        f.seek(SeekFrom::End(0))?;
+        let f = OpenOptions::new().append(true).create(true).open(path)?;
         let mut writer = BufWriter::new(f);
         writer.write("[".as_bytes());
         writer.write(contentType.as_bytes());
@@ -46,3 +46,4 @@ impl CFile {
         CFile{}
     }
 }
+

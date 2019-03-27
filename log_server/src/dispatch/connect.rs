@@ -24,6 +24,10 @@ const requestModeConnect: &str = "connect";
 const requestModeSending: &str = "sending";
 const requestIdentifyPublish: &str = "publish";
 const requestIdentifySubscribe: &str = "subscribe";
+const storageModeNone: &str = "none";
+const storageModeFile: &str = "file";
+const logTypeMessage: &str = "message";
+const logTypeError: &str = "error";
 
 // #[derive(Serialize, Deserialize)]
 #[derive(RustcDecodable, RustcEncodable)]
@@ -34,7 +38,9 @@ pub struct CRequest {
     serverVersion: String,
     serverNo: String,
     topic: String,
-    data: String
+    data: String,
+    storageMode: String,
+    logType: String
 }
 
 pub struct CSubscribeInfo {
@@ -84,19 +90,24 @@ impl CConnect {
                         let storageFile = storageFile.clone();
                         pool.execute(move || {
                             let mut subs = subscribes.lock().unwrap();
-                            let mut sf = storageFile.lock().unwrap();
+                            let sf = storageFile.lock().unwrap();
                             if let Some(subQueue) = subs.get_mut(&key) {
                                 let mut removes = Vec::new();
                                 let mut index = 0;
+                                let content = vec![request.data.clone(), "\n".to_string()].join("");
+                                if request.storageMode == storageModeFile {
+                                    if request.logType.clone() == logTypeMessage {
+                                        sf.message(&key, &content);
+                                    } else if request.logType.clone() == logTypeError {
+                                        sf.error(&key, &content);
+                                    }
+                                }
                                 for sub in &(*subQueue) {
                                     let mut writer = BufWriter::new(&sub.stream);
-                                    let content = vec![request.data.clone(), "\n".to_string()].join("");
                                     writer.write_all(content.as_bytes());
                                     if let Err(e) = writer.flush() {
                                         // (*subQueue).remove_item(sub);
                                         removes.push(index);
-                                    } else {
-                                        sf.message(&key, &content);
                                     }
                                     index += 1;
                                 }
@@ -136,3 +147,4 @@ impl CConnect {
         conn
     }
 }
+
