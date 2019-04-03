@@ -52,7 +52,7 @@ fn main() {
     cmdHandler.parse();
 
     let server = server.borrow();
-    let serverName = serverNo.borrow();
+    let serverName = serverName.borrow();
     let serverVersion = serverVersion.borrow();
     let serverNo = serverNo.borrow();
     let data = data.borrow();
