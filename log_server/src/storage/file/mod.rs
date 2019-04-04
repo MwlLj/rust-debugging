@@ -19,6 +19,8 @@ impl CFile {
         dt.format("%Y-%m-%d %H:%M:%S").to_string()
     }
     fn write(&self, path: &str, contentType: &str, content: &str) -> std::io::Result<()> {
+        let mut path = path.to_string();
+        path.insert_str(path.len(), ".log");
         let f = OpenOptions::new().append(true).create(true).open(path)?;
         let mut writer = BufWriter::new(f);
         writer.write("[".as_bytes());

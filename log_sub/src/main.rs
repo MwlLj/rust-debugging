@@ -79,7 +79,7 @@ fn main() {
         // println!("{}", line);
         let mut buffer = String::new();
         while reader.read_line(&mut buffer).unwrap() > 0 {
-            println!("{:?}", buffer);
+            print!("{}", buffer);
             buffer.clear();
         }
     }

@@ -12,6 +12,7 @@ use std::sync::mpsc;
 use std::sync::Mutex;
 use std::sync::Arc;
 use std::rc::Rc;
+use std::cell::RefCell;
 use std::io::prelude::*;
 
 use rustc_serialize::json;
@@ -71,11 +72,18 @@ impl CConnect {
             let storageFile = storageFile.clone();
             thread::spawn(move || {
                 let stream = stream.unwrap();
-                let reader = BufReader::new(&stream);
-                for line in reader.lines() {
-                    let line = line.unwrap();
+                let mut reader = BufReader::new(&stream);
+                loop {
+                    let mut buf = vec![];
+                    if let Err(_) = reader.read_until(b'\n', &mut buf) {
+                        break;
+                    }
+                // for line in reader.lines() {
+                    // let line = line.unwrap();
                     // let request: CRequest = serde_json::from_str(&line).unwrap();
-                    let request: CRequest = json::decode(&line).unwrap();
+                    let body = String::from_utf8(buf);
+                    let request: CRequest = json::decode(body.unwrap().as_str()).unwrap();
+                    // let request: CRequest = json::decode(&line).unwrap();
                     if request.mode == requestModeConnect && request.identify == requestIdentifyPublish {
                         let key = CConnect::joinKey(request.serverName, request.serverVersion, request.serverNo);
                         // create subscribes map
