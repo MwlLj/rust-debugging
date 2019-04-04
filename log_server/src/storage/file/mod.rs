@@ -18,6 +18,12 @@ impl CFile {
         let dt = Local::now();
         dt.format("%Y-%m-%d %H:%M:%S").to_string()
     }
+
+    /*
+    fn filterFile(&self, path: &str) -> Result<File> {
+    }
+    */
+
     fn write(&self, path: &str, contentType: &str, content: &str) -> std::io::Result<()> {
         let mut path = path.to_string();
         path.insert_str(path.len(), ".log");

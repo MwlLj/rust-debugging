@@ -111,6 +111,9 @@ impl CConnect {
                                     }
                                 }
                                 for sub in &(*subQueue) {
+                                	if request.topic != sub.topic {
+                                		continue;
+                                	}
                                     let mut writer = BufWriter::new(&sub.stream);
                                     writer.write_all(content.as_bytes());
                                     if let Err(e) = writer.flush() {

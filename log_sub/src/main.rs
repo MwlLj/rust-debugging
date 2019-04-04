@@ -26,6 +26,7 @@ const argServerVersion: &str = "-server-version";
 const argServerNo: &str = "-server-no";
 const argStorageMode: &str = "-storage-mode";
 const argLogType: &str = "-log-type";
+const argTopic: &str = "-topic";
 
 #[derive(RustcDecodable, RustcEncodable)]
 struct CRequest {
@@ -46,12 +47,14 @@ fn main() {
     let serverName = cmdHandler.register(argServerName, "tests");
     let serverVersion = cmdHandler.register(argServerVersion, "1.0");
     let serverNo = cmdHandler.register(argServerNo, "1");
+    let topic = cmdHandler.register(argTopic, "");
     cmdHandler.parse();
 
     let server = server.borrow();
     let serverName = serverName.borrow();
     let serverVersion = serverVersion.borrow();
     let serverNo = serverNo.borrow();
+    let topic = topic.borrow();
 
     let stream = TcpStream::connect(&(*server)).unwrap();
     let mut reader = BufReader::new(&stream);
@@ -63,7 +66,7 @@ fn main() {
         serverName: serverName.to_string(),
         serverVersion: serverVersion.to_string(),
         serverNo: serverNo.to_string(),
-        topic: "".to_string(),
+        topic: topic.to_string(),
         data: "".to_string(),
         storageMode: "".to_string(),
         logType: "".to_string()
