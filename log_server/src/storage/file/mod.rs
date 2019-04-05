@@ -11,6 +11,7 @@ use std::fs::DirBuilder;
 use std::io::Seek;
 use std::io::BufWriter;
 use std::io::SeekFrom;
+use std::ffi::OsString;
 
 use super::IStorage;
 
@@ -25,13 +26,21 @@ impl CFile {
         dt.format("%Y-%m-%d %H:%M:%S").to_string()
     }
 
-    fn createDir(&self, path: &str) {
-    	if Path::new(path).exists() {
-    		return ();
+    fn nowDate(&self) -> String {
+    	let dt = Local::now();
+    	dt.format("%Y-%m-%d").to_string()
+    }
+
+    fn createDir(&self, path: &str, contentType: &str) -> Result<PathBuf, &str> {
+    	let date = self.nowDate();
+    	let full = Path::new(path).join(date).as_path().join(contentType);
+    	if full.as_path().exists() {
+    		return Ok(full);
     	}
-    	if let Ok(_) = DirBuilder::new().create(path) {
-    		return ();
+    	if let Ok(_) = DirBuilder::new().recursive(true).create(&full) {
+    		return Ok(full);
     	}
+    	Err("create dirs error")
     }
 
     pub fn walkFiles<F>(&self, dirName: &str, mut callBack: F) -> Result<i32, &str>
@@ -87,19 +96,21 @@ impl CFile {
     }
 
     fn write(&self, root: &str, contentType: &str, content: &str) -> std::io::Result<()> {
-    	self.createDir(root);
-    	if let Ok(path) = self.findFile(root) {
-	    	println!("{:?}", &path);
-	        let f = OpenOptions::new().append(true).create(true).open(path)?;
-	        let mut writer = BufWriter::new(f);
-	        writer.write("[".as_bytes());
-	        writer.write(contentType.as_bytes());
-	        writer.write("] [".as_bytes());
-	        writer.write(self.now().as_bytes());
-	        writer.write("] ".as_bytes());
-	        writer.write(content.as_bytes())?;
-	        writer.flush()?;
-	    }
+    	if let Ok(dirOsString) = self.createDir(root, contentType) {
+    		if let Ok(rootDir) = dirOsString.into_os_string().into_string() {
+		    	if let Ok(path) = self.findFile(rootDir.as_str()) {
+			        let f = OpenOptions::new().append(true).create(true).open(path)?;
+			        let mut writer = BufWriter::new(f);
+			        writer.write("[".as_bytes());
+			        writer.write(contentType.as_bytes());
+			        writer.write("] [".as_bytes());
+			        writer.write(self.now().as_bytes());
+			        writer.write("] ".as_bytes());
+			        writer.write(content.as_bytes())?;
+			        writer.flush()?;
+			    }
+			}
+		}
         Ok(())
     }
 }

@@ -46,7 +46,8 @@ pub struct CRequest {
 
 pub struct CSubscribeInfo {
     stream: TcpStream,
-    topic: String
+    topic: String,
+    logType: String
 }
 
 pub struct CConnect {
@@ -111,11 +112,22 @@ impl CConnect {
                                     }
                                 }
                                 for sub in &(*subQueue) {
-                                	if request.topic != sub.topic {
-                                		continue;
-                                	}
+                                	let mut isSend = false;
+                                	if (sub.topic != "" && sub.logType == "") && request.topic != sub.topic {
+                                		isSend = false;
+                                	} else if (sub.logType != "" && sub.topic == "") && request.logType != sub.logType {
+                                		isSend = false;
+                                	} else if (sub.logType != "" && sub.topic != "") && (request.logType != sub.logType && request.topic != sub.topic) {
+                                		isSend = false;
+                                	} else {
+                                		isSend = true;
+	                                }
                                     let mut writer = BufWriter::new(&sub.stream);
-                                    writer.write_all(content.as_bytes());
+                                    if isSend {
+	                                    writer.write_all(content.as_bytes());
+	                                } else {
+	                                	writer.write_all(b"\n");
+	                                }
                                     if let Err(e) = writer.flush() {
                                         // (*subQueue).remove_item(sub);
                                         removes.push(index);
@@ -134,7 +146,8 @@ impl CConnect {
                             Some(value) => {
                                 let sub = CSubscribeInfo {
                                     stream: stream,
-                                    topic: request.topic
+                                    topic: request.topic,
+                                    logType: request.logType
                                 };
                                 (*value).push(sub);
                             },

@@ -48,6 +48,7 @@ fn main() {
     let serverVersion = cmdHandler.register(argServerVersion, "1.0");
     let serverNo = cmdHandler.register(argServerNo, "1");
     let topic = cmdHandler.register(argTopic, "");
+    let logType = cmdHandler.register(argLogType, "");
     cmdHandler.parse();
 
     let server = server.borrow();
@@ -55,6 +56,7 @@ fn main() {
     let serverVersion = serverVersion.borrow();
     let serverNo = serverNo.borrow();
     let topic = topic.borrow();
+    let logType = logType.borrow();
 
     let stream = TcpStream::connect(&(*server)).unwrap();
     let mut reader = BufReader::new(&stream);
@@ -69,7 +71,7 @@ fn main() {
         topic: topic.to_string(),
         data: "".to_string(),
         storageMode: "".to_string(),
-        logType: "".to_string()
+        logType: logType.to_string()
     };
     let encoded = json::encode(&connRequest).unwrap();
     let content = vec![encoded, "\n".to_string()].join("");
@@ -82,7 +84,9 @@ fn main() {
         // println!("{}", line);
         let mut buffer = String::new();
         while reader.read_line(&mut buffer).unwrap() > 0 {
-            print!("{}", buffer);
+            if buffer != "\n".to_string() {
+                print!("{}", buffer);
+            }
             buffer.clear();
         }
     }
