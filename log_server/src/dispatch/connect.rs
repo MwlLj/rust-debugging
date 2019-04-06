@@ -1,6 +1,7 @@
 // extern crate serde_json;
 extern crate rustc_serialize;
 
+use std::error::Error;
 use std::collections::HashMap;
 use std::io;
 use std::net::TcpListener;
@@ -87,76 +88,77 @@ impl CConnect {
                     // let line = line.unwrap();
                     // let request: CRequest = serde_json::from_str(&line).unwrap();
                     let body = String::from_utf8(buf);
-                    let request: CRequest = json::decode(body.unwrap().as_str()).unwrap();
-                    // let request: CRequest = json::decode(&line).unwrap();
-                    if request.mode == requestModeConnect && request.identify == requestIdentifyPublish {
-                        let key = CConnect::joinKey(request.serverName, request.serverVersion, request.serverNo);
-                        // create subscribes map
-                        let mut subs = subscribes.lock().unwrap();
-                        subs.insert(key, Vec::new());
-                    } else if request.mode == requestModeSending && request.identify == requestIdentifyPublish {
-                        // handle server send data
-                        let key = CConnect::joinKey(request.serverName.clone(), request.serverVersion.clone(), request.serverNo.clone());
-                        // broadcast in thread pool
-                        let pool = threadPool.lock().unwrap();
-                        let subscribes = subscribes.clone();
-                        let storageFile = storageFile.clone();
-                        let contentStatic = contentStatic.clone();
-                        pool.execute(move || {
+                    if let Ok(request) = json::decode(body.unwrap().as_str()) {
+                        let request: CRequest = request;
+                        if request.mode == requestModeConnect && request.identify == requestIdentifyPublish {
+                            let key = CConnect::joinKey(request.serverName, request.serverVersion, request.serverNo);
+                            // create subscribes map
                             let mut subs = subscribes.lock().unwrap();
-                            let sf = storageFile.lock().unwrap();
-                            let cs = contentStatic.lock().unwrap();
-                            if let Some(subQueue) = subs.get_mut(&key) {
-                                let mut removes = Vec::new();
-                                let mut index = 0;
-                                let content = vec![request.data.clone(), "\n".to_string()].join("");
-                                let content = cs.full(&key, &request.logType, &request.topic, &content);
-                                if request.storageMode == storageModeFile {
-                                    sf.write(&key, &request.logType, &content);
-                                }
-                                for sub in &(*subQueue) {
-                                	let mut isSend = false;
-                                	if (sub.topic != "" && sub.logType == "") && request.topic != sub.topic {
-                                		isSend = false;
-                                	} else if (sub.logType != "" && sub.topic == "") && request.logType != sub.logType {
-                                		isSend = false;
-                                	} else if (sub.logType != "" && sub.topic != "") && (request.logType != sub.logType && request.topic != sub.topic) {
-                                		isSend = false;
-                                	} else {
-                                		isSend = true;
-	                                }
-                                    let mut writer = BufWriter::new(&sub.stream);
-                                    if isSend {
-	                                    writer.write_all(content.as_bytes());
-	                                } else {
-	                                	writer.write_all(b"\n");
-	                                }
-                                    if let Err(e) = writer.flush() {
-                                        // (*subQueue).remove_item(sub);
-                                        removes.push(index);
+                            subs.insert(key, Vec::new());
+                        } else if request.mode == requestModeSending && request.identify == requestIdentifyPublish {
+                            // handle server send data
+                            let key = CConnect::joinKey(request.serverName.clone(), request.serverVersion.clone(), request.serverNo.clone());
+                            // broadcast in thread pool
+                            let pool = threadPool.lock().unwrap();
+                            let subscribes = subscribes.clone();
+                            let storageFile = storageFile.clone();
+                            let contentStatic = contentStatic.clone();
+                            pool.execute(move || {
+                                let mut subs = subscribes.lock().unwrap();
+                                let sf = storageFile.lock().unwrap();
+                                let cs = contentStatic.lock().unwrap();
+                                if let Some(subQueue) = subs.get_mut(&key) {
+                                    let mut removes = Vec::new();
+                                    let mut index = 0;
+                                    let content = vec![request.data.clone(), "\n".to_string()].join("");
+                                    let content = cs.full(&key, &request.logType, &request.topic, &content);
+                                    if request.storageMode == storageModeFile {
+                                        sf.write(&key, &request.logType, &content);
                                     }
-                                    index += 1;
-                                }
-                                for removeIndex in removes {
-                                    (*subQueue).remove(removeIndex);
-                                }
-                            };
-                        });
-                    } else if request.mode == requestModeConnect && request.identify == requestIdentifySubscribe {
-                        let key = CConnect::joinKey(request.serverName, request.serverVersion, request.serverNo);
-                        let mut subs = subscribes.lock().unwrap();
-                        match subs.get_mut(&key) {
-                            Some(value) => {
-                                let sub = CSubscribeInfo {
-                                    stream: stream,
-                                    topic: request.topic,
-                                    logType: request.logType
+                                    for sub in &(*subQueue) {
+                                    	let mut isSend = false;
+                                    	if (sub.topic != "" && sub.logType == "") && request.topic != sub.topic {
+                                    		isSend = false;
+                                    	} else if (sub.logType != "" && sub.topic == "") && request.logType != sub.logType {
+                                    		isSend = false;
+                                    	} else if (sub.logType != "" && sub.topic != "") && (request.logType != sub.logType || request.topic != sub.topic) {
+                                    		isSend = false;
+                                    	} else {
+                                    		isSend = true;
+    	                                }
+                                        let mut writer = BufWriter::new(&sub.stream);
+                                        if isSend {
+    	                                    writer.write_all(content.as_bytes());
+    	                                } else {
+    	                                	writer.write_all(b"\n");
+    	                                }
+                                        if let Err(e) = writer.flush() {
+                                            // (*subQueue).remove_item(sub);
+                                            removes.push(index);
+                                        }
+                                        index += 1;
+                                    }
+                                    for removeIndex in removes {
+                                        (*subQueue).remove(removeIndex);
+                                    }
                                 };
-                                (*value).push(sub);
-                            },
-                            None => break
-                        };
-                        break;
+                            });
+                        } else if request.mode == requestModeConnect && request.identify == requestIdentifySubscribe {
+                            let key = CConnect::joinKey(request.serverName, request.serverVersion, request.serverNo);
+                            let mut subs = subscribes.lock().unwrap();
+                            match subs.get_mut(&key) {
+                                Some(value) => {
+                                    let sub = CSubscribeInfo {
+                                        stream: stream,
+                                        topic: request.topic,
+                                        logType: request.logType
+                                    };
+                                    (*value).push(sub);
+                                },
+                                None => break
+                            };
+                            break;
+                        }
                     }
                 }
             });
