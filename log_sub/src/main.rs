@@ -44,7 +44,7 @@ struct CRequest {
 
 fn main() {
     let mut cmdHandler = CCmd::new();
-    let help = cmdHandler.register(argHelp, "help");
+    let help = cmdHandler.register(argHelp, "");
     let server = cmdHandler.register(argServer, "127.0.0.1:50005");
     let serverName = cmdHandler.register(argServerName, "tests");
     let serverVersion = cmdHandler.register(argServerVersion, "1.0");
@@ -62,7 +62,7 @@ fn main() {
     let logType = logType.borrow();
 
     // is exists help
-    if *help == "help" {
+    if *help == "doc" {
         let mut message = String::new();
         message.push_str("options: \n");
         message.push_str("\t-server: log server addr, exp: localhost:50005\n");
