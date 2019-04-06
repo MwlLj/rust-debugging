@@ -20,6 +20,7 @@ use rustc_serialize::json;
 use super::super::pool::thread::CThreadPool;
 use super::super::storage::IStorage;
 use super::super::storage::file::CFile;
+use super::super::statics::content::CContent;
 
 const requestModeConnect: &str = "connect";
 const requestModeSending: &str = "sending";
@@ -53,7 +54,8 @@ pub struct CSubscribeInfo {
 pub struct CConnect {
     subscribes: HashMap<String, Vec<CSubscribeInfo>>,
     queuePool: CThreadPool,
-    storageFile: CFile
+    storageFile: CFile,
+    content: CContent
 }
 
 impl CConnect {
@@ -67,10 +69,12 @@ impl CConnect {
         let subscribes = Arc::new(Mutex::new(self.subscribes));
         let threadPool = Arc::new(Mutex::new(self.queuePool));
         let storageFile = Arc::new(Mutex::new(self.storageFile));
+        let contentStatic = Arc::new(Mutex::new(self.content));
         for stream in listener.incoming() {
             let subscribes = subscribes.clone();
             let threadPool = threadPool.clone();
             let storageFile = storageFile.clone();
+            let contentStatic = contentStatic.clone();
             thread::spawn(move || {
                 let stream = stream.unwrap();
                 let mut reader = BufReader::new(&stream);
@@ -97,19 +101,18 @@ impl CConnect {
                         let pool = threadPool.lock().unwrap();
                         let subscribes = subscribes.clone();
                         let storageFile = storageFile.clone();
+                        let contentStatic = contentStatic.clone();
                         pool.execute(move || {
                             let mut subs = subscribes.lock().unwrap();
                             let sf = storageFile.lock().unwrap();
+                            let cs = contentStatic.lock().unwrap();
                             if let Some(subQueue) = subs.get_mut(&key) {
                                 let mut removes = Vec::new();
                                 let mut index = 0;
                                 let content = vec![request.data.clone(), "\n".to_string()].join("");
+                                let content = cs.full(&key, &request.logType, &request.topic, &content);
                                 if request.storageMode == storageModeFile {
-                                    if request.logType.clone() == logTypeMessage {
-                                        sf.message(&key, &content);
-                                    } else if request.logType.clone() == logTypeError {
-                                        sf.error(&key, &content);
-                                    }
+                                    sf.write(&key, &request.logType, &content);
                                 }
                                 for sub in &(*subQueue) {
                                 	let mut isSend = false;
@@ -166,7 +169,8 @@ impl CConnect {
         let conn = CConnect{
             subscribes: HashMap::new(),
             queuePool: CThreadPool::new(queueThreadMax),
-            storageFile: CFile::new()
+            storageFile: CFile::new(),
+            content: CContent::new()
         };
         conn
     }

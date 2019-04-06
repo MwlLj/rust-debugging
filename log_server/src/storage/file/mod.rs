@@ -95,17 +95,12 @@ impl CFile {
     	Err("not found")
     }
 
-    fn write(&self, root: &str, contentType: &str, content: &str) -> std::io::Result<()> {
+    fn w(&self, root: &str, contentType: &str, content: &str) -> std::io::Result<()> {
     	if let Ok(dirOsString) = self.createDir(root, contentType) {
     		if let Ok(rootDir) = dirOsString.into_os_string().into_string() {
 		    	if let Ok(path) = self.findFile(rootDir.as_str()) {
 			        let f = OpenOptions::new().append(true).create(true).open(path)?;
 			        let mut writer = BufWriter::new(f);
-			        writer.write("[".as_bytes());
-			        writer.write(contentType.as_bytes());
-			        writer.write("] [".as_bytes());
-			        writer.write(self.now().as_bytes());
-			        writer.write("] ".as_bytes());
 			        writer.write(content.as_bytes())?;
 			        writer.flush()?;
 			    }
@@ -116,11 +111,8 @@ impl CFile {
 }
 
 impl IStorage for CFile {
-    fn message(&self, path: &str, content: &str) -> std::io::Result<()> {
-        self.write(path, "message", content)
-    }
-    fn error(&self, path: &str, content: &str) -> std::io::Result<()> {
-        self.write(path, "error", content)
+    fn write(&self, path: &str, logType: &str, content: &str) -> std::io::Result<()> {
+        self.w(path, logType, content)
     }
 }
 

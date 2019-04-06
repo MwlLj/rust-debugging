@@ -1,11 +1,7 @@
 pub mod file;
 
 pub trait IStorage {
-    fn message(&self, path: &str, content: &str) -> std::io::Result<()> {
-        println!("{:?}", content);
-        Ok(())
-    }
-    fn error(&self, path: &str, content: &str) -> std::io::Result<()> {
+    fn write(&self, path: &str, logType: &str, content: &str) -> std::io::Result<()> {
         println!("{:?}", content);
         Ok(())
     }
