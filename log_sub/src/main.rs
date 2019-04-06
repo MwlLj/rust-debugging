@@ -20,6 +20,7 @@ const storageModeFile: &str = "file";
 const logTypeMessage: &str = "message";
 const logTypeError: &str = "error";
 
+const argHelp: &str = "-help";
 const argServer: &str = "-server";
 const argServerName: &str = "-server-name";
 const argServerVersion: &str = "-server-version";
@@ -43,6 +44,7 @@ struct CRequest {
 
 fn main() {
     let mut cmdHandler = CCmd::new();
+    let help = cmdHandler.register(argHelp, "help");
     let server = cmdHandler.register(argServer, "127.0.0.1:50005");
     let serverName = cmdHandler.register(argServerName, "tests");
     let serverVersion = cmdHandler.register(argServerVersion, "1.0");
@@ -51,6 +53,7 @@ fn main() {
     let logType = cmdHandler.register(argLogType, "");
     cmdHandler.parse();
 
+    let help = help.borrow();
     let server = server.borrow();
     let serverName = serverName.borrow();
     let serverVersion = serverVersion.borrow();
@@ -58,36 +61,58 @@ fn main() {
     let topic = topic.borrow();
     let logType = logType.borrow();
 
-    let stream = TcpStream::connect(&(*server)).unwrap();
-    let mut reader = BufReader::new(&stream);
-    let mut writer = BufWriter::new(&stream);
+    // is exists help
+    if *help == "help" {
+        let mut message = String::new();
+        message.push_str("options: \n");
+        message.push_str("\t-server: log server addr, exp: localhost:50005\n");
+        message.push_str("\t-server-name: server name, exp: cfgs\n");
+        message.push_str("\t-server-version: server version, exp: 1.0\n");
+        message.push_str("\t-server-no: server no, exp: 1\n");
+        message.push_str("\t-storage-mode: storage mode, exp: file, mysql (support file current)\n");
+        message.push_str("\t-log-type: log type, exp: \n");
+        message.push_str("\t\tmessage <==> println\n");
+        message.push_str("\t\tdebug <==> debugln\n");
+        message.push_str("\t\tinfo <==> infoln\n");
+        message.push_str("\t\twarn <==> warnln\n");
+        message.push_str("\t\terror <==> errorln\n");
+        message.push_str("\t\tfatal <==> fatalln\n");
+        message.push_str("\t-topic: topic, exp: /get\n");
+        print!("{}", message);
+    } else {
+        // not exists help
 
-    let connRequest = CRequest {
-        mode: requestModeConnect.to_string(),
-        identify: requestIdentifySubscribe.to_string(),
-        serverName: serverName.to_string(),
-        serverVersion: serverVersion.to_string(),
-        serverNo: serverNo.to_string(),
-        topic: topic.to_string(),
-        data: "".to_string(),
-        storageMode: "".to_string(),
-        logType: logType.to_string()
-    };
-    let encoded = json::encode(&connRequest).unwrap();
-    let content = vec![encoded, "\n".to_string()].join("");
-    writer.write_all(content.as_bytes()).unwrap();
-    writer.flush().unwrap();
+        let stream = TcpStream::connect(&(*server)).unwrap();
+        let mut reader = BufReader::new(&stream);
+        let mut writer = BufWriter::new(&stream);
 
-    loop {
-        // let mut line = String::new();
-        // reader.read_line(&mut line).unwrap();
-        // println!("{}", line);
-        let mut buffer = String::new();
-        while reader.read_line(&mut buffer).unwrap() > 0 {
-            if buffer != "\n".to_string() {
-                print!("{}", buffer);
+        let connRequest = CRequest {
+            mode: requestModeConnect.to_string(),
+            identify: requestIdentifySubscribe.to_string(),
+            serverName: serverName.to_string(),
+            serverVersion: serverVersion.to_string(),
+            serverNo: serverNo.to_string(),
+            topic: topic.to_string(),
+            data: "".to_string(),
+            storageMode: "".to_string(),
+            logType: logType.to_string()
+        };
+        let encoded = json::encode(&connRequest).unwrap();
+        let content = vec![encoded, "\n".to_string()].join("");
+        writer.write_all(content.as_bytes()).unwrap();
+        writer.flush().unwrap();
+
+        loop {
+            // let mut line = String::new();
+            // reader.read_line(&mut line).unwrap();
+            // println!("{}", line);
+            let mut buffer = String::new();
+            while reader.read_line(&mut buffer).unwrap() > 0 {
+                if buffer != "\n".to_string() {
+                    print!("{}", buffer);
+                }
+                buffer.clear();
             }
-            buffer.clear();
         }
     }
 }
