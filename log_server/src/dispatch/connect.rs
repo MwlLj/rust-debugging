@@ -49,7 +49,10 @@ pub struct CRequest {
 pub struct CSubscribeInfo {
     stream: TcpStream,
     topic: String,
-    logType: String
+    logType: String,
+    serverName: String,
+    serverVersion: String,
+    serverNo: String
 }
 
 pub struct CConnect {
@@ -61,6 +64,9 @@ pub struct CConnect {
 
 impl CConnect {
     fn joinKey(serverName: String, serverVersion: String, serverNo: String) -> String {
+    	if serverName != "" && serverVersion == "" && serverNo == "" {
+    		// to do
+    	}
         let key = vec![serverName, serverVersion, serverNo].join("-");
         key
     }
@@ -144,12 +150,15 @@ impl CConnect {
                                 };
                             });
                         } else if request.mode == requestModeConnect && request.identify == requestIdentifySubscribe {
-                            let key = CConnect::joinKey(request.serverName, request.serverVersion, request.serverNo);
+                            let key = CConnect::joinKey(request.serverName.clone(), request.serverVersion.clone(), request.serverNo.clone());
                             let mut subs = subscribes.lock().unwrap();
                             let sub = CSubscribeInfo {
                                 stream: stream,
                                 topic: request.topic,
-                                logType: request.logType
+                                logType: request.logType,
+                                serverName: request.serverName,
+                                serverVersion: request.serverVersion,
+                                serverNo: request.serverNo
                             };
                             match subs.get_mut(&key) {
                                 Some(value) => {
