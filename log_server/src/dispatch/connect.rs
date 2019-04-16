@@ -91,10 +91,10 @@ impl CConnect {
                     if let Ok(request) = json::decode(body.unwrap().as_str()) {
                         let request: CRequest = request;
                         if request.mode == requestModeConnect && request.identify == requestIdentifyPublish {
-                            let key = CConnect::joinKey(request.serverName, request.serverVersion, request.serverNo);
-                            // create subscribes map
-                            let mut subs = subscribes.lock().unwrap();
-                            subs.insert(key, Vec::new());
+                            // let key = CConnect::joinKey(request.serverName, request.serverVersion, request.serverNo);
+                            // // create subscribes map
+                            // let mut subs = subscribes.lock().unwrap();
+                            // subs.insert(key, Vec::new());
                         } else if request.mode == requestModeSending && request.identify == requestIdentifyPublish {
                             // handle server send data
                             let key = CConnect::joinKey(request.serverName.clone(), request.serverVersion.clone(), request.serverNo.clone());
@@ -146,16 +146,20 @@ impl CConnect {
                         } else if request.mode == requestModeConnect && request.identify == requestIdentifySubscribe {
                             let key = CConnect::joinKey(request.serverName, request.serverVersion, request.serverNo);
                             let mut subs = subscribes.lock().unwrap();
+                            let sub = CSubscribeInfo {
+                                stream: stream,
+                                topic: request.topic,
+                                logType: request.logType
+                            };
                             match subs.get_mut(&key) {
                                 Some(value) => {
-                                    let sub = CSubscribeInfo {
-                                        stream: stream,
-                                        topic: request.topic,
-                                        logType: request.logType
-                                    };
                                     (*value).push(sub);
                                 },
-                                None => break
+                                None => {
+                                    let mut v = Vec::new();
+                                    v.push(sub);
+                                    subs.insert(key, v);
+                                }
                             };
                             break;
                         }
