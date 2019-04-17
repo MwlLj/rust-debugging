@@ -6,6 +6,7 @@ use std::io::prelude::*;
 use std::io::BufReader;
 use std::io::BufWriter;
 use std::net::TcpStream;
+use std::{thread, time};
 
 use rustc_serialize::json;
 
@@ -82,36 +83,40 @@ fn main() {
     } else {
         // not exists help
 
-        let stream = TcpStream::connect(&(*server)).unwrap();
-        let mut reader = BufReader::new(&stream);
-        let mut writer = BufWriter::new(&stream);
-
-        let connRequest = CRequest {
-            mode: requestModeConnect.to_string(),
-            identify: requestIdentifySubscribe.to_string(),
-            serverName: serverName.to_string(),
-            serverVersion: serverVersion.to_string(),
-            serverNo: serverNo.to_string(),
-            topic: topic.to_string(),
-            data: "".to_string(),
-            storageMode: "".to_string(),
-            logType: logType.to_string()
-        };
-        let encoded = json::encode(&connRequest).unwrap();
-        let content = vec![encoded, "\n".to_string()].join("");
-        writer.write_all(content.as_bytes()).unwrap();
-        writer.flush().unwrap();
-
         loop {
-            // let mut line = String::new();
-            // reader.read_line(&mut line).unwrap();
-            // println!("{}", line);
-            let mut buffer = String::new();
-            while reader.read_line(&mut buffer).unwrap() > 0 {
-                if buffer != "\n".to_string() {
-                    print!("{}", buffer);
+            if let Ok(stream) = TcpStream::connect(&(*server)) {
+                let stream = TcpStream::connect(&(*server)).unwrap();
+                let mut reader = BufReader::new(&stream);
+                let mut writer = BufWriter::new(&stream);
+
+                let connRequest = CRequest {
+                    mode: requestModeConnect.to_string(),
+                    identify: requestIdentifySubscribe.to_string(),
+                    serverName: serverName.to_string(),
+                    serverVersion: serverVersion.to_string(),
+                    serverNo: serverNo.to_string(),
+                    topic: topic.to_string(),
+                    data: "".to_string(),
+                    storageMode: "".to_string(),
+                    logType: logType.to_string()
+                };
+                let encoded = json::encode(&connRequest).unwrap();
+                let content = vec![encoded, "\n".to_string()].join("");
+                writer.write_all(content.as_bytes()).unwrap();
+                writer.flush().unwrap();
+
+                let mut buffer = String::new();
+                while let Ok(size) = reader.read_line(&mut buffer) {
+                    if size > 0 {
+                        if buffer != "\n".to_string() {
+                            print!("{}", buffer);
+                        }
+                        buffer.clear();
+                    }
                 }
-                buffer.clear();
+                println!("closed");
+            } else {
+                thread::sleep(time::Duration::from_millis(3000));
             }
         }
     }
