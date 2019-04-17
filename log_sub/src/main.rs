@@ -29,6 +29,7 @@ const argServerNo: &str = "-server-no";
 const argStorageMode: &str = "-storage-mode";
 const argLogType: &str = "-log-type";
 const argTopic: &str = "-topic";
+const argConnectCheck: &str = "-connect-check";
 
 #[derive(RustcDecodable, RustcEncodable)]
 struct CRequest {
@@ -52,6 +53,7 @@ fn main() {
     let serverNo = cmdHandler.register(argServerNo, "1");
     let topic = cmdHandler.register(argTopic, "");
     let logType = cmdHandler.register(argLogType, "");
+    let connectCheck = cmdHandler.register(argConnectCheck, "1000");
     cmdHandler.parse();
 
     let help = help.borrow();
@@ -61,6 +63,9 @@ fn main() {
     let serverNo = serverNo.borrow();
     let topic = topic.borrow();
     let logType = logType.borrow();
+    let connectCheck = connectCheck.borrow();
+
+    let connectCheck = connectCheck.parse::<u64>().unwrap();
 
     // is exists help
     if *help == "doc" {
@@ -116,7 +121,7 @@ fn main() {
                 }
                 println!("closed");
             } else {
-                thread::sleep(time::Duration::from_millis(3000));
+                thread::sleep(time::Duration::from_millis(connectCheck));
             }
         }
     }
