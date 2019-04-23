@@ -85,16 +85,16 @@ impl CConnect {
             thread::spawn(move || {
                 let stream = stream.unwrap();
                 let mut reader = BufReader::new(&stream);
-                loop {
-                    let mut buf = vec![];
-                    if let Err(_) = reader.read_until(b'\n', &mut buf) {
-                        break;
-                    }
-                // for line in reader.lines() {
-                    // let line = line.unwrap();
-                    // let request: CRequest = serde_json::from_str(&line).unwrap();
-                    let body = String::from_utf8(buf);
-                    if let Ok(request) = json::decode(body.unwrap().as_str()) {
+                // loop {
+                //     let mut buf = vec![];
+                //     if let Err(_) = reader.read_until(b'\n', &mut buf) {
+                //         break;
+                //     }
+                    // let body = String::from_utf8(buf);
+                    // if let Ok(request) = json::decode(body.unwrap().as_str()) {
+                for line in reader.lines() {
+                    let line = line.unwrap();
+                    if let Ok(request) = json::decode(&line) {
                         let request: CRequest = request;
                         if request.mode == requestModeConnect && request.identify == requestIdentifyPublish {
                             // let key = CConnect::joinKey(request.serverName, request.serverVersion, request.serverNo);
@@ -145,6 +145,7 @@ impl CConnect {
                                         index += 1;
                                     }
                                     for removeIndex in removes {
+                                        println!("remove index: {}", removeIndex);
                                         (*subQueue).remove(removeIndex);
                                     }
                                 };
