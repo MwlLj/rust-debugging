@@ -125,6 +125,7 @@ impl CConnect {
                                             let content = cs.full(&key, &request.logType, &request.topic, &content);
                                             if request.storageMode == storageModeFile {
                                                 sf.write(&key, &request.logType, &content);
+                                                sf.write(&key, "full", &content);
                                                 // if cfg!(all(target_os="linux", target_arch="arm")) {
                                                 // } else {
                                                 //     sf.write(&key, &request.logType, &content);
