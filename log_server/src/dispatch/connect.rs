@@ -124,10 +124,11 @@ impl CConnect {
                                             let content = vec![request.data.clone(), "\n".to_string()].join("");
                                             let content = cs.full(&key, &request.logType, &request.topic, &content);
                                             if request.storageMode == storageModeFile {
-                                                if cfg!(all(target_os="linux", target_arch="arm")) {
-                                                } else {
-                                                    sf.write(&key, &request.logType, &content);
-                                                }
+                                                sf.write(&key, &request.logType, &content);
+                                                // if cfg!(all(target_os="linux", target_arch="arm")) {
+                                                // } else {
+                                                //     sf.write(&key, &request.logType, &content);
+                                                // }
                                             }
                                             for sub in &(*subQueue) {
                                             	let mut isSend = false;
