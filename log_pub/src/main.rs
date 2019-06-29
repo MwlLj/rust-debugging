@@ -41,6 +41,43 @@ struct CRequest {
     logType: String
 }
 
+fn append32Number(value: u32, buf: &mut Vec<u8>) {
+    for i in 0..32 {
+        let b = (value >> i) & 1;
+        buf.push(b as u8);
+    }
+}
+
+fn sendRequest(request: CRequest, stream: TcpStream) -> bool {
+    let mut writer = BufWriter::new(&stream);
+    let mut buf = Vec::new();
+    append32Number(request.mode.len() as u32, &mut buf);
+    buf.append(&mut request.mode.as_bytes().to_vec());
+    append32Number(request.identify.len() as u32, &mut buf);
+    buf.append(&mut request.identify.as_bytes().to_vec());
+    append32Number(request.serverName.len() as u32, &mut buf);
+    buf.append(&mut request.serverName.as_bytes().to_vec());
+    append32Number(request.serverVersion.len() as u32, &mut buf);
+    buf.append(&mut request.serverVersion.as_bytes().to_vec());
+    append32Number(request.serverNo.len() as u32, &mut buf);
+    buf.append(&mut request.serverNo.as_bytes().to_vec());
+    append32Number(request.topic.len() as u32, &mut buf);
+    buf.append(&mut request.topic.as_bytes().to_vec());
+    append32Number(request.data.len() as u32, &mut buf);
+    buf.append(&mut request.data.as_bytes().to_vec());
+    append32Number(request.storageMode.len() as u32, &mut buf);
+    buf.append(&mut request.storageMode.as_bytes().to_vec());
+    append32Number(request.logType.len() as u32, &mut buf);
+    buf.append(&mut request.logType.as_bytes().to_vec());
+    if let Err(err) = writer.write_all(&buf) {
+        return false;
+    };
+    if let Err(err) = writer.flush() {
+        return false;
+    };
+    true
+}
+
 fn main() {
     let mut cmdHandler = CCmd::new();
     let server = cmdHandler.register(argServer, "127.0.0.1:50005");
@@ -78,10 +115,13 @@ fn main() {
             storageMode: "".to_string(),
             logType: "".to_string()
         };
+        sendRequest(connRequest, stream.try_clone().unwrap());
+        /*
         let encoded = json::encode(&connRequest).unwrap();
         let content = vec![encoded, "\n".to_string()].join("");
         writer.write_all(content.as_bytes()).unwrap();
         writer.flush().unwrap();
+        */
     }
 
     loop {
@@ -96,10 +136,13 @@ fn main() {
             storageMode: storageMode.to_string(),
             logType: logType.to_string()
         };
+        sendRequest(pubRequest, stream.try_clone().unwrap());
+        /*
         let encoded = json::encode(&pubRequest).unwrap();
         let content = vec![encoded, "\n".to_string()].join("");
         writer.write_all(content.as_bytes()).unwrap();
         writer.flush().unwrap();
+        */
 
         thread::sleep_ms(1000);
     }

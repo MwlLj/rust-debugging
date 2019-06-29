@@ -5,3 +5,4 @@ pub mod pool;
 pub mod dispatch;
 pub mod storage;
 pub mod statics;
+pub mod decode;

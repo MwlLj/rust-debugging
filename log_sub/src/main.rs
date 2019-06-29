@@ -12,6 +12,8 @@ use rustc_serialize::json;
 
 use rust_parse::cmd::CCmd;
 
+use log_sub::decode::stream::CStreamBlockParse;
+
 const requestModeConnect: &str = "connect";
 const requestModeSending: &str = "sending";
 const requestIdentifyPublish: &str = "publish";
@@ -31,7 +33,7 @@ const argLogType: &str = "-log-type";
 const argTopic: &str = "-topic";
 const argConnectCheck: &str = "-connect-check";
 
-#[derive(RustcDecodable, RustcEncodable)]
+#[derive(RustcDecodable, RustcEncodable, Default)]
 struct CRequest {
     mode: String,
     identify: String,
@@ -42,6 +44,128 @@ struct CRequest {
     data: String,
     storageMode: String,
     logType: String
+}
+
+#[derive(Default)]
+struct CContent {
+    data: String
+}
+
+macro_rules! decode_request {
+    ($index:ident, $s:ident, $req:ident) => ({
+        if $index % 2 == 0 {
+            let two: u32 = 2;
+            let mut number = 0;
+            let mut i = 0;
+            for item in $s {
+                // println!("{}, {}, {}", item, i, two.pow(i));
+                number += item as u32 * two.pow(i);
+                i += 1;
+            }
+            return (true, number);
+        }
+        if $index == 1 {$req.mode = match String::from_utf8($s) {
+            Ok(v) => v,
+            Err(_) => "".to_string()
+        }}
+        else if $index == 3 {$req.identify = match String::from_utf8($s) {
+            Ok(v) => v,
+            Err(_) => "".to_string()
+        }}
+        else if $index == 5 {$req.serverName = match String::from_utf8($s) {
+            Ok(v) => v,
+            Err(_) => "".to_string()
+        }}
+        else if $index == 7 {$req.serverVersion = match String::from_utf8($s) {
+            Ok(v) => v,
+            Err(_) => "".to_string()
+        }}
+        else if $index == 9 {$req.serverNo = match String::from_utf8($s) {
+            Ok(v) => v,
+            Err(_) => "".to_string()
+        }}
+        else if $index == 11 {$req.topic = match String::from_utf8($s) {
+            Ok(v) => v,
+            Err(_) => "".to_string()
+        }}
+        else if $index == 13 {$req.data = match String::from_utf8($s) {
+            Ok(v) => v,
+            Err(_) => "".to_string()
+        }}
+        else if $index == 15 {$req.storageMode = match String::from_utf8($s) {
+            Ok(v) => v,
+            Err(_) => "".to_string()
+        }}
+        else if $index == 17 {$req.logType = match String::from_utf8($s) {
+            Ok(v) => v,
+            Err(_) => "".to_string()
+        }}
+        if $index == 17 {
+            return (false, 0);
+        }
+        return (true, 32);
+    })
+}
+
+macro_rules! decode_content {
+    ($index:ident, $s:ident, $req:ident) => ({
+        if $index % 2 == 0 {
+            let two: u32 = 2;
+            let mut number = 0;
+            let mut i = 0;
+            for item in $s {
+                // println!("{}, {}, {}", item, i, two.pow(i));
+                number += item as u32 * two.pow(i);
+                i += 1;
+            }
+            return (true, number);
+        }
+        if $index == 1 {$req.data = match String::from_utf8($s) {
+            Ok(v) => v,
+            Err(_) => "".to_string()
+        }}
+        if $index == 1 {
+            return (false, 0);
+        }
+        return (true, 32);
+    })
+}
+
+fn append32Number(value: u32, buf: &mut Vec<u8>) {
+    for i in 0..32 {
+        let b = (value >> i) & 1;
+        buf.push(b as u8);
+    }
+}
+
+fn sendRequest(request: CRequest, stream: TcpStream) -> bool {
+    let mut writer = BufWriter::new(&stream);
+    let mut buf = Vec::new();
+    append32Number(request.mode.len() as u32, &mut buf);
+    buf.append(&mut request.mode.as_bytes().to_vec());
+    append32Number(request.identify.len() as u32, &mut buf);
+    buf.append(&mut request.identify.as_bytes().to_vec());
+    append32Number(request.serverName.len() as u32, &mut buf);
+    buf.append(&mut request.serverName.as_bytes().to_vec());
+    append32Number(request.serverVersion.len() as u32, &mut buf);
+    buf.append(&mut request.serverVersion.as_bytes().to_vec());
+    append32Number(request.serverNo.len() as u32, &mut buf);
+    buf.append(&mut request.serverNo.as_bytes().to_vec());
+    append32Number(request.topic.len() as u32, &mut buf);
+    buf.append(&mut request.topic.as_bytes().to_vec());
+    append32Number(request.data.len() as u32, &mut buf);
+    buf.append(&mut request.data.as_bytes().to_vec());
+    append32Number(request.storageMode.len() as u32, &mut buf);
+    buf.append(&mut request.storageMode.as_bytes().to_vec());
+    append32Number(request.logType.len() as u32, &mut buf);
+    buf.append(&mut request.logType.as_bytes().to_vec());
+    if let Err(err) = writer.write_all(&buf) {
+        return false;
+    };
+    if let Err(err) = writer.flush() {
+        return false;
+    };
+    true
 }
 
 fn main() {
@@ -105,11 +229,24 @@ fn main() {
                     storageMode: "".to_string(),
                     logType: logType.to_string()
                 };
+                sendRequest(connRequest, stream.try_clone().unwrap());
+                /*
                 let encoded = json::encode(&connRequest).unwrap();
                 let content = vec![encoded, "\n".to_string()].join("");
                 writer.write_all(content.as_bytes()).unwrap();
                 writer.flush().unwrap();
+                */
 
+                let mut req = CContent::default();
+                let mut r = CStreamBlockParse::new(stream.try_clone().unwrap());
+                r.lines(32, &mut req, &mut |index: u64, buf: Vec<u8>, request: &mut CContent| -> (bool, u32) {
+                    decode_content!(index, buf, request);
+                }, |request: &CContent| -> bool {
+                    print!("{}", request.data);
+                    return true;
+                });
+
+                /*
                 let mut buffer = String::new();
                 while let Ok(size) = reader.read_line(&mut buffer) {
                     if size > 0 {
@@ -119,6 +256,7 @@ fn main() {
                         buffer.clear();
                     }
                 }
+                */
                 println!("closed");
             } else {
                 thread::sleep(time::Duration::from_millis(connectCheck));
