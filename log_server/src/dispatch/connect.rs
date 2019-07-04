@@ -325,6 +325,7 @@ impl CContent {
                     // }
                 }
                 for sub in &(*subQueue) {
+                    println!("send to subscribers");
                     let mut isSend = false;
                     if (sub.topic != "" && sub.logType == "") && topic != sub.topic {
                         isSend = false;
