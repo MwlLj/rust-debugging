@@ -13,4 +13,4 @@ chrono = "*"
 
 rustc-serialize = "*"
 
-rust_parse = { git = "https://github.com/MwlLj/rust_parse" }
+rust_parse = { git = "https://github.com/MwlLj/rust_parse", version = "0.1.4" }

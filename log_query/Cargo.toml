@@ -1,0 +1,9 @@
+[package]
+name = "log_query"
+version = "0.1.0"
+authors = ["MwlLj <731025894@qq.com>"]
+edition = "2018"
+
+[dependencies.rust_parse]
+git = "https://github.com/MwlLj/rust_parse"
+version = "*"
