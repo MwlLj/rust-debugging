@@ -109,7 +109,11 @@ macro_rules! decode_request {
             Ok(v) => v,
             Err(_) => "".to_string()
         }}
-        if $index == 17 {
+        else if $index == 19 {$req.keyword = match String::from_utf8($s) {
+            Ok(v) => v,
+            Err(_) => "".to_string()
+        }}
+        if $index == 19 {
             return (false, 0);
         }
         return (true, 32);
@@ -228,6 +232,7 @@ impl CConnect {
                             , &request.serverNo, &request.keyword, &request.data
                             , queryers.clone());
                     } else if request.mode == requestModeQuery && request.identify == requestIdentifyQueryer {
+                        println!("handle query");
                         CConnect::handleQuery(request.serverName.clone(), request.serverVersion.clone()
                             , request.serverNo.clone(), request.keyword.clone(), publishs.clone());
                     } else if request.mode == requestModeConnect && request.identify == requestIdentifySubscribe {

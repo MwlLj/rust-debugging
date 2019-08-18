@@ -92,8 +92,8 @@ fn append32Number(value: u32, buf: &mut Vec<u8>) {
     }
 }
 
-fn sendRequest(request: CRequest, stream: TcpStream) -> bool {
-    let mut writer = BufWriter::new(&stream);
+fn sendRequest(request: CRequest, stream: &TcpStream) -> bool {
+    let mut writer = BufWriter::new(stream);
     let mut buf = Vec::new();
     append32Number(request.mode.len() as u32, &mut buf);
     buf.append(&mut request.mode.as_bytes().to_vec());
@@ -122,6 +122,41 @@ fn sendRequest(request: CRequest, stream: TcpStream) -> bool {
         return false;
     };
     true
+}
+
+fn handleInput(stream: std::io::Result<TcpStream>
+	, serverName: String, serverVersion: String, serverNo: String) {
+	let stream = match stream {
+		Ok(s) => s,
+		Err(err) => {
+			println!("stream tryclone error, err: {}", err);
+			return;
+		}
+	};
+	loop {
+		println!("please input keyword:");
+		let mut keyword = String::new();
+		if let Err(err) = std::io::stdin().read_line(&mut keyword) {
+			println!("recv stdin error, err: {}", err);
+			break;
+		};
+	    let req = CRequest {
+	        mode: requestModeQuery.to_string(),
+	        identify: requestIdentifyQueryer.to_string(),
+	        serverName: serverName.to_string(),
+	        serverVersion: serverVersion.to_string(),
+	        serverNo: serverNo.to_string(),
+	        topic: "".to_string(),
+	        data: "".to_string(),
+	        storageMode: "".to_string(),
+	        logType: "".to_string(),
+	        keyword: keyword
+	    };
+	    if !sendRequest(req, &stream) {
+	    	println!("send query request error");
+	    	break;
+	    }
+	}
 }
 
 fn main() {
@@ -173,9 +208,19 @@ fn main() {
 
         loop {
             if let Ok(stream) = TcpStream::connect(&(*server)) {
-                let stream = TcpStream::connect(&(*server)).unwrap();
                 let mut reader = BufReader::new(&stream);
                 let mut writer = BufWriter::new(&stream);
+
+                {
+	                let streamClone = stream.try_clone();
+	                let serverName = serverName.to_string();
+	                let serverVersion = serverVersion.to_string();
+	                let serverNo = serverNo.to_string();
+	                std::thread::spawn(move || {
+	                	handleInput(streamClone,
+	                		serverName, serverVersion, serverNo);
+	                });
+	            }
 
                 let connRequest = CRequest {
                     mode: requestModeConnect.to_string(),
@@ -189,7 +234,7 @@ fn main() {
                     logType: "".to_string(),
                     keyword: keyword.to_string()
                 };
-                sendRequest(connRequest, stream.try_clone().unwrap());
+                sendRequest(connRequest, &stream);
                 /*
                 let encoded = json::encode(&connRequest).unwrap();
                 let content = vec![encoded, "\n".to_string()].join("");
