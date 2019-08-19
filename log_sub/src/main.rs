@@ -43,7 +43,8 @@ struct CRequest {
     topic: String,
     data: String,
     storageMode: String,
-    logType: String
+    logType: String,
+    keyword: String
 }
 
 #[derive(Default)]
@@ -229,7 +230,8 @@ fn main() {
                     topic: topic.to_string(),
                     data: "".to_string(),
                     storageMode: "".to_string(),
-                    logType: logType.to_string()
+                    logType: logType.to_string(),
+                    keyword: "".to_string()
                 };
                 sendRequest(connRequest, stream.try_clone().unwrap());
                 /*
