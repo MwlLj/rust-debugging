@@ -6,6 +6,7 @@ use std::io::BufReader;
 use std::io::BufWriter;
 use std::net::TcpStream;
 use std::{thread, time};
+use std::sync::mpsc;
 
 use rust_parse::cmd::CCmd;
 
@@ -124,7 +125,7 @@ fn sendRequest(request: CRequest, stream: &TcpStream) -> bool {
     true
 }
 
-fn handleInput(stream: std::io::Result<TcpStream>
+fn handleInput(recv: mpsc::Receiver<bool>, stream: std::io::Result<TcpStream>
 	, serverName: String, serverVersion: String, serverNo: String) {
 	let stream = match stream {
 		Ok(s) => s,
@@ -133,13 +134,15 @@ fn handleInput(stream: std::io::Result<TcpStream>
 			return;
 		}
 	};
+    println!("please input keyword:");
 	loop {
-		println!("please input keyword:");
+        std::io::stdout().flush();
 		let mut keyword = String::new();
 		if let Err(err) = std::io::stdin().read_line(&mut keyword) {
 			println!("recv stdin error, err: {}", err);
 			break;
 		};
+        keyword = keyword.trim().to_string();
 	    let req = CRequest {
 	        mode: requestModeQuery.to_string(),
 	        identify: requestIdentifyQueryer.to_string(),
@@ -156,6 +159,25 @@ fn handleInput(stream: std::io::Result<TcpStream>
 	    	println!("send query request error");
 	    	break;
 	    }
+        let recv = recv.recv_timeout(time::Duration::from_secs(30));
+        let recv = match recv {
+            Ok(r) => r,
+            Err(err) => {
+                println!("recv error, err: {}", err);
+                continue;
+            }
+        };
+        let mut stdout = std::io::stdout();
+        if recv {
+            stdout.write_fmt(format_args!("> "));
+            stdout.flush();
+            // println!("please input keyword:");
+        } else {
+            println!("key is not exist");
+            stdout.write_fmt(format_args!("> "));
+            stdout.flush();
+            continue;
+        }
 	}
 }
 
@@ -211,13 +233,14 @@ fn main() {
                 let mut reader = BufReader::new(&stream);
                 let mut writer = BufWriter::new(&stream);
 
+                let (send, recv) = mpsc::channel();
                 {
 	                let streamClone = stream.try_clone();
 	                let serverName = serverName.to_string();
 	                let serverVersion = serverVersion.to_string();
 	                let serverNo = serverNo.to_string();
 	                std::thread::spawn(move || {
-	                	handleInput(streamClone,
+	                	handleInput(recv, streamClone,
 	                		serverName, serverVersion, serverNo);
 	                });
 	            }
@@ -247,8 +270,13 @@ fn main() {
                 r.lines(32, &mut res, &mut |index: u64, buf: Vec<u8>, response: &mut CResponse| -> (bool, u32) {
                     decode_response!(index, buf, response);
                 }, |response: &CResponse| -> bool {
-                    print!("***keyword: \n{}\n", response.keyword);
-                    print!("***memory info: \n{}\n", response.data);
+                    if response.keyword == "" {
+                        send.send(false);
+                    } else {
+                        print!("***keyword: \n{}\n", &response.keyword);
+                        print!("***memory info: \n{}\n", &response.data);
+                        send.send(true);
+                    }
                     return true;
                 });
 
