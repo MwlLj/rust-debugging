@@ -159,6 +159,8 @@ fn sendRequest(request: CRequest, stream: TcpStream) -> bool {
     buf.append(&mut request.storageMode.as_bytes().to_vec());
     append32Number(request.logType.len() as u32, &mut buf);
     buf.append(&mut request.logType.as_bytes().to_vec());
+    append32Number(request.keyword.len() as u32, &mut buf);
+    buf.append(&mut request.keyword.as_bytes().to_vec());
     if let Err(err) = writer.write_all(&buf) {
         return false;
     };
