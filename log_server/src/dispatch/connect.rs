@@ -291,6 +291,7 @@ impl CConnect {
                         }
                     };
                     pubs.remove(&publisherKey);
+                    /*
                     let mut subs = match subscribes.lock() {
                         Ok(s) => s,
                         Err(err) => {
@@ -299,6 +300,7 @@ impl CConnect {
                         }
                     };
                     subs.remove(&publisherKey);
+                    */
                 } else if queryerKey != "" {
                     let mut queryers = match queryers.lock() {
                         Ok(p) => p,
