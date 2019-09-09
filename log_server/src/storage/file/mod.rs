@@ -18,7 +18,8 @@ use super::IStorage;
 pub struct CFile {
 }
 
-const log_file_max_byte_len: u64 = 5242880;
+// const log_file_max_byte_len: u64 = 5242880;
+const log_file_max_byte_len: u64 = 10240;
 
 impl CFile {
     fn now(&self) -> String {
@@ -65,7 +66,7 @@ impl CFile {
         Ok(0)
     }
 
-    fn findFile<'a>(&self, dir: &'a str) -> Result<PathBuf, &str> {
+    fn findFile1<'a>(&self, dir: &'a str) -> Result<PathBuf, &str> {
     	let mut v = Vec::new();
     	if let Ok(_) = self.walkFiles(dir, |fileName: String| {
     		v.push(fileName);
@@ -93,6 +94,40 @@ impl CFile {
     		return Ok(Path::new(dir).join("1.log".to_string()));
     	}
     	Err("not found")
+    }
+
+    fn joinPath(&self, dir: &str, index: u64) -> String {
+        let mut path = String::new();
+        path.push_str(dir);
+        path.push_str("/");
+        path.push_str(&index.to_string());
+        path.push_str(".log");
+        path
+    }
+
+    fn findFile<'a>(&self, dir: &'a str) -> Result<String, &str> {
+        let mut index: u64 = 1;
+        loop {
+            let path = self.joinPath(dir, index);
+            if Path::new(&path).exists() {
+                let meta = match fs::metadata(&path) {
+                    Ok(m) => m,
+                    Err(err) => {
+                        return Err("get metadata error");
+                    }
+                };
+                if meta.len() > log_file_max_byte_len {
+                    index += 1;
+                    continue;
+                } else {
+                    break;
+                }
+            } else {
+                break;
+            }
+            index += 1;
+        }
+        Ok(self.joinPath(dir, index))
     }
 
     fn w(&self, root: &str, contentType: &str, content: &str) -> std::io::Result<()> {
