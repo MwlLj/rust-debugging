@@ -18,8 +18,8 @@ use super::IStorage;
 pub struct CFile {
 }
 
-// const log_file_max_byte_len: u64 = 5242880;
-const log_file_max_byte_len: u64 = 10240;
+const log_file_max_byte_len: u64 = 5242880;
+// const log_file_max_byte_len: u64 = 10240;
 
 impl CFile {
     fn now(&self) -> String {
