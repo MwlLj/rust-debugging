@@ -371,7 +371,12 @@ impl CConnect {
             if let Some(subQueue) = subs.get_mut(&key) {
                 let mut removes = Vec::new();
                 let mut index = 0;
-                let content = vec![data, "\n".to_string()].join("");
+                let mut content = String::new();
+                if cfg!(target_os="windows") {
+                    content = vec![data, "\r\n".to_string()].join("");
+                } else {
+                    content = vec![data, "\n".to_string()].join("");
+                }
                 let content = cs.full(&key, &logType, &topic, &content);
                 if storageMode == storageModeFile {
                     sf.write(&key, &logType, &content);
