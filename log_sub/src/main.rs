@@ -176,8 +176,8 @@ fn main() {
     let help = cmdHandler.register(argHelp, "");
     let server = cmdHandler.register(argServer, "127.0.0.1:50005");
     let serverName = cmdHandler.register(argServerName, "tests");
-    let serverVersion = cmdHandler.register(argServerVersion, "1.0");
-    let serverNo = cmdHandler.register(argServerNo, "1");
+    let serverVersion = cmdHandler.register(argServerVersion, "");
+    let serverNo = cmdHandler.register(argServerNo, "");
     let topic = cmdHandler.register(argTopic, "");
     let logType = cmdHandler.register(argLogType, "");
     let connectCheck = cmdHandler.register(argConnectCheck, "1000");
