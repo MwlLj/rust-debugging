@@ -282,6 +282,7 @@ impl CConnect {
                 let publisherKey = pubCon.0;
                 let consumerKey = pubCon.1;
                 let queryerKey = pubCon.2;
+                println!("{}, {}, {}", &publisherKey, &consumerKey, &queryerKey);
                 if publisherKey != "" {
                     let mut pubs = match publishs.lock() {
                         Ok(p) => p,
@@ -333,17 +334,15 @@ impl CConnect {
                                 return;
                             }
                         };
-                        let mut rmInxs = Vec::new();
-                        let mut index = 0;
+                        let mut rmIds = Vec::new();
                         for item in queue.iter() {
                             if item.subKey == consumerKey {
-                                rmInxs.push(index);
+                                rmIds.push(item.subKey.to_string());
                                 break;
                             }
-                            index += 1;
                         }
-                        for i in rmInxs {
-                            queue.remove(i);
+                        if rmIds.len() > 0 {
+                            CConnect::removeItemsFromSet(&rmIds, queue);
                         }
                     }
                 }
@@ -370,7 +369,6 @@ impl CConnect {
             let cs = contentStatic.lock().unwrap();
             if let Some(subQueue) = subs.get_mut(&key) {
                 let mut removes = Vec::new();
-                let mut index = 0;
                 let mut content = String::new();
                 if cfg!(target_os="windows") {
                     content = vec![data, "\r\n".to_string()].join("");
@@ -387,7 +385,7 @@ impl CConnect {
                     // }
                 }
                 for sub in &(*subQueue) {
-                    println!("send to subscribers");
+                    // println!("send to subscribers");
                     let mut isSend = false;
                     if (sub.topic != "" && sub.logType == "") && topic != sub.topic {
                         isSend = false;
@@ -408,17 +406,15 @@ impl CConnect {
                     }
                     if let Err(e) = res {
                         // (*subQueue).remove_item(sub);
-                        removes.push(index);
+                        removes.push(sub.subKey.to_string());
                     }
                     // if let Err(e) = writer.flush() {
                     //     // (*subQueue).remove_item(sub);
                     //     removes.push(index);
                     // }
-                    index += 1;
                 }
-                for removeIndex in removes {
-                    println!("remove index: {}", removeIndex);
-                    (*subQueue).remove(removeIndex);
+                if removes.len() > 0 {
+                    CConnect::removeItemsFromSet(&removes, &mut (*subQueue));
                 }
             };
         });
@@ -597,6 +593,26 @@ impl CConnect {
             return false;
         };
         true
+    }
+
+    fn removeItemsFromSet(rmIds: &Vec<String>, queue: &mut Vec<CSubscribeInfo>) {
+        for id in rmIds {
+            match queue.iter().position(|x| {
+                if &x.subKey == id {
+                    true
+                } else {
+                    false
+                }
+            }) {
+                Some(pos) => {
+                    println!("remove, pos: {}", pos);
+                    queue.remove(pos);
+                },
+                None => {
+                }
+            }
+        }
+        println!("after remove, queue size: {}", queue.len());
     }
 }
 
