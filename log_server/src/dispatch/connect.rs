@@ -121,6 +121,7 @@ macro_rules! decode_request {
 }
 
 pub struct CSubscribeInfo {
+    connId: String,
     subKey: String,
     stream: TcpStream,
     topic: String,
@@ -189,6 +190,7 @@ impl CConnect {
                         return;
                     }
                 };
+                let connId = uuid::Uuid::new_v4().to_string();
                 let reader = BufReader::new(&stream);
                 let mut req = CRequest::default();
                 let mut r = CStreamBlockParse::new(stream.try_clone().unwrap());
@@ -214,6 +216,7 @@ impl CConnect {
                                 pubs.insert(publisherKey.clone(), v);
                             }
                         };
+                        /*
                         // create subscribes map
                         let mut subs = subscribes.lock().unwrap();
                         match subs.get_mut(&publisherKey) {
@@ -222,6 +225,7 @@ impl CConnect {
                             },
                             Some(_) => {}
                         }
+                        */
                         pc.0 = publisherKey;
                     } else if request.mode == requestModeSending && request.identify == requestIdentifyPublish {
                         CConnect::handlePublish(request.serverName.clone(), request.serverVersion.clone(), request.serverNo.clone()
@@ -239,6 +243,7 @@ impl CConnect {
                         let mut consumerKey = CConnect::joinKey(&request.serverName, &request.serverVersion, &request.serverNo);
                         let mut subs = subscribes.lock().unwrap();
                         let sub = CSubscribeInfo {
+                            connId: connId.clone(),
                             subKey: consumerKey.clone(),
                             stream: stream.try_clone().unwrap(),
                             topic: request.topic.clone(),
@@ -247,6 +252,28 @@ impl CConnect {
                             serverVersion: request.serverVersion.clone(),
                             serverNo: request.serverNo.clone()
                         };
+                        /*
+                        let mut isFind = false;
+                        for (key, value) in subs.iter_mut() {
+                            if key.starts_with(&consumerKey) {
+                                (*value).push(sub);
+                                isFind = true;
+                                break;
+                            }
+                        }
+                        */
+                        /*
+                        ** When the sub runs first, check if the container exists.
+                        ** If it exists, insert it into vec
+                        ** If it does not exist, create vec
+                        */
+                        /*
+                        if !isFind {
+                            let mut v = Vec::new();
+                            v.push(sub);
+                            subs.insert(consumerKey.clone(), v);
+                        }
+                        */
                         match subs.get_mut(&consumerKey) {
                             Some(value) => {
                                 (*value).push(sub);
@@ -257,6 +284,8 @@ impl CConnect {
                                 subs.insert(consumerKey.clone(), v);
                             }
                         };
+                        /*
+                        */
                         pc.1 = consumerKey;
                     } else if request.mode == requestModeConnect && request.identify == requestIdentifyQueryer {
                         let mut queryerKey = CConnect::joinKey(&request.serverName, &request.serverVersion, &request.serverNo);
@@ -282,7 +311,7 @@ impl CConnect {
                 let publisherKey = pubCon.0;
                 let consumerKey = pubCon.1;
                 let queryerKey = pubCon.2;
-                println!("{}, {}, {}", &publisherKey, &consumerKey, &queryerKey);
+                // println!("{}, {}, {}", &publisherKey, &consumerKey, &queryerKey);
                 if publisherKey != "" {
                     let mut pubs = match publishs.lock() {
                         Ok(p) => p,
@@ -319,6 +348,16 @@ impl CConnect {
                             return;
                         }
                     };
+                    for (_, value) in subs.iter_mut() {
+                        for (i, item) in value.iter().enumerate() {
+                            if item.connId == connId {
+                                value.remove(i);
+                                println!("after move, len: {}", value.len());
+                                break;
+                            }
+                        }
+                    }
+                    /*
                     let pubs = match publishs.lock() {
                         Ok(p) => p,
                         Err(err) => {
@@ -345,6 +384,7 @@ impl CConnect {
                             CConnect::removeItemsFromSet(&rmIds, queue);
                         }
                     }
+                    */
                 }
             });
         }
@@ -364,26 +404,38 @@ impl CConnect {
         let storageFile = storageFile.clone();
         let contentStatic = contentStatic.clone();
         pool.execute(move || {
-            let mut subs = subscribes.lock().unwrap();
+            /*
+            ** write file
+            */
             let sf = storageFile.lock().unwrap();
             let cs = contentStatic.lock().unwrap();
-            if let Some(subQueue) = subs.get_mut(&key) {
+            let mut content = String::new();
+            if cfg!(target_os="windows") {
+                content.push_str(&data);
+                content.push_str("\r\n");
+            } else {
+                content.push_str(&data);
+                content.push_str("\n");
+            }
+            let content = cs.full(&key, &logType, &topic, &content);
+            if storageMode == storageModeFile {
+                sf.write(&key, &logType, &content);
+                sf.write(&key, "full", &content);
+                // if cfg!(all(target_os="linux", target_arch="arm")) {
+                // } else {
+                //     sf.write(&key, &request.logType, &content);
+                // }
+            }
+            /*
+            ** send to subscribes
+            */
+            let mut subs = subscribes.lock().unwrap();
+            for (k, subQueue) in subs.iter_mut() {
+                // println!("key: {}, k: {}", key, k);
+                if !key.starts_with(k) {
+                    continue;
+                }
                 let mut removes = Vec::new();
-                let mut content = String::new();
-                if cfg!(target_os="windows") {
-                    content = vec![data, "\r\n".to_string()].join("");
-                } else {
-                    content = vec![data, "\n".to_string()].join("");
-                }
-                let content = cs.full(&key, &logType, &topic, &content);
-                if storageMode == storageModeFile {
-                    sf.write(&key, &logType, &content);
-                    sf.write(&key, "full", &content);
-                    // if cfg!(all(target_os="linux", target_arch="arm")) {
-                    // } else {
-                    //     sf.write(&key, &request.logType, &content);
-                    // }
-                }
                 for sub in &(*subQueue) {
                     // println!("send to subscribers");
                     let mut isSend = false;
@@ -406,7 +458,7 @@ impl CConnect {
                     }
                     if let Err(e) = res {
                         // (*subQueue).remove_item(sub);
-                        removes.push(sub.subKey.to_string());
+                        removes.push(sub.connId.to_string());
                     }
                     // if let Err(e) = writer.flush() {
                     //     // (*subQueue).remove_item(sub);
@@ -416,7 +468,11 @@ impl CConnect {
                 if removes.len() > 0 {
                     CConnect::removeItemsFromSet(&removes, &mut (*subQueue));
                 }
+            }
+            /*
+            if let Some(subQueue) = subs.get_mut(&key) {
             };
+            */
         });
     }
 
@@ -598,7 +654,7 @@ impl CConnect {
     fn removeItemsFromSet(rmIds: &Vec<String>, queue: &mut Vec<CSubscribeInfo>) {
         for id in rmIds {
             match queue.iter().position(|x| {
-                if &x.subKey == id {
+                if &x.connId == id {
                     true
                 } else {
                     false
