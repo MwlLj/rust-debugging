@@ -120,6 +120,10 @@ macro_rules! decode_request {
     })
 }
 
+trait IRemove {
+    fn id(&self) -> &str;
+}
+
 pub struct CSubscribeInfo {
     connId: String,
     subKey: String,
@@ -131,17 +135,37 @@ pub struct CSubscribeInfo {
     serverNo: String
 }
 
+impl IRemove for CSubscribeInfo {
+    fn id(&self) -> &str {
+        &self.connId
+    }
+}
+
 pub struct CQueryAck {
     keyword: String,
     data: String
 }
 
 pub struct CPublishInfo {
+    connId: String,
     stream: TcpStream
 }
 
+impl IRemove for CPublishInfo {
+    fn id(&self) -> &str {
+        &self.connId
+    }
+}
+
 pub struct CQueryInfo {
+    connId: String,
     stream: TcpStream
+}
+
+impl IRemove for CQueryInfo {
+    fn id(&self) -> &str {
+        &self.connId
+    }
 }
 
 pub struct CConnect {
@@ -204,6 +228,7 @@ impl CConnect {
                         let mut publisherKey = CConnect::joinKey(&request.serverName, &request.serverVersion, &request.serverNo);
                         let mut pubs = publishs.lock().unwrap();
                         let pu = CPublishInfo {
+                            connId: connId.clone(),
                             stream: stream.try_clone().unwrap()
                         };
                         match pubs.get_mut(&publisherKey) {
@@ -291,6 +316,7 @@ impl CConnect {
                         let mut queryerKey = CConnect::joinKey(&request.serverName, &request.serverVersion, &request.serverNo);
                         let mut queryers = queryers.lock().unwrap();
                         let queryer = CQueryInfo {
+                            connId: connId.clone(),
                             stream: stream.try_clone().unwrap()
                         };
                         match queryers.get_mut(&queryerKey) {
@@ -339,7 +365,16 @@ impl CConnect {
                             return;
                         }
                     };
-                    queryers.remove(&queryerKey);
+                    // queryers.remove(&queryerKey);
+                    for (_, value) in queryers.iter_mut() {
+                        for (i, item) in value.iter().enumerate() {
+                            if item.connId == connId {
+                                value.remove(i);
+                                println!("after move, len: {}", value.len());
+                                break;
+                            }
+                        }
+                    }
                 } else if consumerKey != "" {
                     let mut subs = match subscribes.lock() {
                         Ok(s) => s,
@@ -498,22 +533,26 @@ impl CConnect {
                 }
             };
             let mut removes = Vec::new();
-            let mut index = 0;
             for pu in &(*pubQueue) {
                 loop {
                     let res = CConnect::askQuery(&keyword, pu.stream.try_clone().unwrap());
                     if let Err(e) = res {
-                        removes.push(index);
+                        // removes.push(index);
+                        removes.push(pu.connId.to_string());
                         break;
                     }
                     break;
                 }
-                index += 1;
             }
+            if removes.len() > 0 {
+                CConnect::removeItemsFromSet(&removes, &mut (*pubQueue));
+            }
+            /*
             for removeIndex in removes {
                 println!("remove index: {}", removeIndex);
                 (*pubQueue).remove(removeIndex);
             }
+            */
         });
     }
 
@@ -541,7 +580,6 @@ impl CConnect {
                 }
             };
             let mut removes = Vec::new();
-            let mut index = 0;
             for pu in &(*queryQueue) {
                 loop {
                     let r = CConnect::sendResponse(CResponse{
@@ -550,17 +588,22 @@ impl CConnect {
                         data: data.to_string()
                     }, pu.stream.try_clone().unwrap());
                     if !r {
-                        removes.push(index);
+                        // removes.push(index);
+                        removes.push(pu.connId.to_string());
                         break;
                     }
                     break;
                 }
-                index += 1;
             }
+            if removes.len() > 0 {
+                CConnect::removeItemsFromSet(&removes, &mut (*queryQueue));
+            }
+            /*
             for removeIndex in removes {
                 println!("remove index: {}", removeIndex);
                 (*queryQueue).remove(removeIndex);
             }
+            */
         });
     }
 
@@ -651,10 +694,10 @@ impl CConnect {
         true
     }
 
-    fn removeItemsFromSet(rmIds: &Vec<String>, queue: &mut Vec<CSubscribeInfo>) {
+    fn removeItemsFromSet<T: IRemove>(rmIds: &Vec<String>, queue: &mut Vec<T>) {
         for id in rmIds {
             match queue.iter().position(|x| {
-                if &x.connId == id {
+                if &x.id() == id {
                     true
                 } else {
                     false
