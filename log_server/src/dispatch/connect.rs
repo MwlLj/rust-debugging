@@ -442,7 +442,7 @@ impl CConnect {
             /*
             ** write file
             */
-            let sf = storageFile.lock().unwrap();
+            let mut sf = storageFile.lock().unwrap();
             let cs = contentStatic.lock().unwrap();
             let mut content = String::new();
             if cfg!(target_os="windows") {
@@ -716,13 +716,13 @@ impl CConnect {
 }
 
 impl CConnect {
-    pub fn new(queueThreadMax: usize) -> CConnect {
+    pub fn new(queueThreadMax: usize, maxDay: i64) -> CConnect {
         let conn = CConnect{
             subscribes: HashMap::new(),
             publishs: HashMap::new(),
             queryers: HashMap::new(),
             queuePool: CThreadPool::new(queueThreadMax),
-            storageFile: CFile::new(),
+            storageFile: CFile::new(maxDay),
             content: CContent::new()
         };
         conn

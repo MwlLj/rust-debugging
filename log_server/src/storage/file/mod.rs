@@ -2,6 +2,7 @@ extern crate chrono;
 
 use std::io::prelude::*;
 use chrono::prelude::*;
+use std::path;
 use std::path::Path;
 use std::path::PathBuf;
 use std::fs;
@@ -16,6 +17,8 @@ use std::ffi::OsString;
 use super::IStorage;
 
 pub struct CFile {
+    maxSecond: i64,
+    date: Option<Date<Local>>
 }
 
 const log_file_max_byte_len: u64 = 5242880;
@@ -32,7 +35,76 @@ impl CFile {
     	dt.format("%Y-%m-%d").to_string()
     }
 
-    fn createDir(&self, path: &str, contentType: &str) -> Result<PathBuf, &str> {
+    fn deleteDirs(&mut self, path: &str, now: &DateTime<Local>) {
+        /*
+        ** 计算出应该删除的日期的最小值
+        */
+        let naiveLocal = now.naive_local();
+        let nowTimestamp = naiveLocal.timestamp();
+        let minTimestamp = nowTimestamp - self.maxSecond;
+        let minNaiveDateTime = NaiveDateTime::from_timestamp(minTimestamp, 0);
+        let minNaiveDate = minNaiveDateTime.date();
+        let dirs = match Path::new(path).read_dir() {
+            Ok(ds) => ds,
+            Err(err) => {
+                println!("read dir error, err: {}", err);
+                return;
+            }
+        };
+        for dir in dirs {
+            let dir = match dir {
+                Ok(d) => d,
+                Err(err) => {
+                    continue;
+                }
+            };
+            let pathBuf = dir.path();
+            if !pathBuf.is_dir() {
+                continue;
+            }
+            let name = match dir.file_name().to_str() {
+                Some(n) => n.to_string(),
+                None => {
+                    continue;
+                }
+            };
+            let dirDate = match NaiveDate::parse_from_str(&name, "%Y-%m-%d") {
+                Ok(dt) => dt,
+                Err(err) => {
+                    println!("parse from str error, err: {}", err);
+                    continue;
+                }
+            };
+            if dirDate >= minNaiveDate {
+                continue;
+            }
+            fs::remove_dir_all(Path::new(path).join(name));
+        }
+    }
+
+    fn createDir(&mut self, path: &str, contentType: &str) -> Result<PathBuf, &str> {
+        let nowDatetime = Local::now();
+        let nowDate = nowDatetime.date();
+        match self.date {
+            Some(d) => {
+                /*
+                ** 判断当前时间是否和d不一样
+                **  不一样(说明处于时间切换点) => 检测是否需要删除目录, 并对 self.date 赋值
+                **  一样 => 不处理
+                */
+                if (d != nowDate) {
+                    self.deleteDirs(path, &nowDatetime);
+                    self.date = Some(nowDate);
+                }
+            },
+            None => {
+                /*
+                ** 检测是否需要删除目录, 并对 self.date 赋值
+                */
+                self.deleteDirs(path, &nowDatetime);
+                self.date = Some(nowDate);
+            }
+        }
     	let date = self.nowDate();
     	let full = Path::new(path).join(date).as_path().join(contentType);
     	if full.as_path().exists() {
@@ -130,7 +202,7 @@ impl CFile {
         Ok(self.joinPath(dir, index))
     }
 
-    fn w(&self, root: &str, contentType: &str, content: &str) -> std::io::Result<()> {
+    fn w(&mut self, root: &str, contentType: &str, content: &str) -> std::io::Result<()> {
     	if let Ok(dirOsString) = self.createDir(root, contentType) {
     		if let Ok(rootDir) = dirOsString.into_os_string().into_string() {
 		    	if let Ok(path) = self.findFile(rootDir.as_str()) {
@@ -146,14 +218,17 @@ impl CFile {
 }
 
 impl IStorage for CFile {
-    fn write(&self, path: &str, logType: &str, content: &str) -> std::io::Result<()> {
+    fn write(&mut self, path: &str, logType: &str, content: &str) -> std::io::Result<()> {
         self.w(path, logType, content)
     }
 }
 
 impl CFile {
-    pub fn new() -> CFile {
-        CFile{}
+    pub fn new(maxDay: i64) -> CFile {
+        CFile{
+            maxSecond: maxDay * 3600 * 24,
+            date: None
+        }
     }
 }
 
