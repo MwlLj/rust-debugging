@@ -78,7 +78,11 @@ impl CFile {
             if dirDate >= minNaiveDate {
                 continue;
             }
-            fs::remove_dir_all(Path::new(path).join(name));
+            if let Err(err) = fs::remove_dir_all(Path::new(path).join(name.clone())) {
+                println!("remove_dir_all error, err: {}", err);
+            } else {
+                println!("remove {:?} success", Path::new(path).join(name.clone()));
+            }
         }
     }
 
