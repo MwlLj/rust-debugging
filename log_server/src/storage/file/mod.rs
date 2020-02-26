@@ -13,12 +13,13 @@ use std::io::Seek;
 use std::io::BufWriter;
 use std::io::SeekFrom;
 use std::ffi::OsString;
+use std::collections::HashMap;
 
 use super::IStorage;
 
 pub struct CFile {
     maxSecond: i64,
-    date: Option<Date<Local>>
+    date: HashMap<String, Date<Local>>
 }
 
 const log_file_max_byte_len: u64 = 5242880;
@@ -89,16 +90,16 @@ impl CFile {
     fn createDir(&mut self, path: &str, contentType: &str) -> Result<PathBuf, &str> {
         let nowDatetime = Local::now();
         let nowDate = nowDatetime.date();
-        match self.date {
+        match self.date.get(path) {
             Some(d) => {
                 /*
                 ** 判断当前时间是否和d不一样
                 **  不一样(说明处于时间切换点) => 检测是否需要删除目录, 并对 self.date 赋值
                 **  一样 => 不处理
                 */
-                if (d != nowDate) {
+                if (d != &nowDate) {
                     self.deleteDirs(path, &nowDatetime);
-                    self.date = Some(nowDate);
+                    self.date.insert(path.to_owned(), nowDate);
                 }
             },
             None => {
@@ -106,7 +107,7 @@ impl CFile {
                 ** 检测是否需要删除目录, 并对 self.date 赋值
                 */
                 self.deleteDirs(path, &nowDatetime);
-                self.date = Some(nowDate);
+                self.date.insert(path.to_owned(), nowDate);
             }
         }
     	let date = self.nowDate();
@@ -231,7 +232,7 @@ impl CFile {
     pub fn new(maxDay: i64) -> CFile {
         CFile{
             maxSecond: maxDay * 3600 * 24,
-            date: None
+            date: HashMap::new()
         }
     }
 }
